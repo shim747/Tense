@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0f1923">
+<title>Tense Challenge</title>
+<link rel="manifest" href="manifest.json">
+<script>if("serviceWorker"in navigator)navigator.serviceWorker.register("./sw.js");</script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap');
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { width: 100%; height: 100%; font-family: 'DM Sans', sans-serif; background: #0f1923; color: #e8f4f8; overflow: hidden; }
+.app { width: 100%; height: 100dvh; display: flex; flex-direction: column; padding: 12px 16px 16px; max-width: 480px; margin: 0 auto; }
+.header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-shrink: 0; }
+.logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1rem; letter-spacing: 2px; color: #00e5ff; padding-bottom: 4px; overflow: visible; line-height: 1.4; }
+.score-pill { background: rgba(255,209,102,0.12); border: 1px solid rgba(255,209,102,0.3); border-radius: 99px; padding: 5px 12px; font-size: 0.9rem; font-weight: 600; color: #ffd166; }
+.screen { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+.screen.active { display: flex; }
+
+/* HOME */
+.home-title { font-family: 'Syne', sans-serif; font-size: 1.4rem; font-weight: 800; margin-bottom: 10px; line-height: 1.4; padding-bottom: 4px; }
+.home-title span { color: #00e5ff; }
+.tense-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.tense-card { border-radius: 12px; padding: 10px; border: 1.5px solid; }
+.tense-card.simple { background: rgba(0,229,255,0.08); border-color: rgba(0,229,255,0.25); }
+.tense-card.prog { background: rgba(255,107,53,0.08); border-color: rgba(255,107,53,0.25); }
+.tc-label { font-size: 0.6rem; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 600; margin-bottom: 3px; }
+.simple .tc-label { color: #00e5ff; }
+.prog .tc-label { color: #ff6b35; }
+.tc-title { font-weight: 700; font-size: 0.85rem; margin-bottom: 3px; }
+.tc-ex { font-size: 0.72rem; color: rgba(232,244,248,0.55); font-style: italic; }
+.mode-label { font-size: 0.6rem; letter-spacing: 2px; text-transform: uppercase; color: rgba(232,244,248,0.4); margin-bottom: 6px; }
+.mode-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 10px; }
+.mode-btn { padding: 8px 4px; border-radius: 10px; border: 1.5px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.03); color: #e8f4f8; font-size: 0.72rem; font-weight: 500; cursor: pointer; transition: all 0.2s; text-align: center; line-height: 1.4; }
+.mode-btn.active { border-color: #00e5ff; background: rgba(0,229,255,0.1); color: #00e5ff; }
+.mode-btn:active { transform: scale(0.95); }
+.play-btn { width: 100%; padding: 14px; border-radius: 14px; border: none; background: linear-gradient(135deg, #00e5ff, #0099bb); color: #0f1923; font-family: 'Syne', sans-serif; font-size: 1rem; font-weight: 800; letter-spacing: 1px; cursor: pointer; flex-shrink: 0; }
+.play-btn:active { opacity: 0.9; transform: scale(0.98); }
+
+/* GAME */
+.progress-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-shrink: 0; }
+.progress-track { flex: 1; height: 4px; background: rgba(255,255,255,0.08); border-radius: 99px; overflow: hidden; }
+.progress-fill { height: 100%; background: linear-gradient(90deg, #00e5ff, #ff6b35); border-radius: 99px; transition: width 0.4s; }
+.progress-lbl { font-size: 0.72rem; color: rgba(232,244,248,0.4); white-space: nowrap; }
+.sentence-card { background: #162030; border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 16px; text-align: center; margin-bottom: 10px; flex-shrink: 0; }
+.sent-tag { font-size: 0.6rem; letter-spacing: 2px; text-transform: uppercase; color: rgba(232,244,248,0.35); margin-bottom: 8px; }
+.sent-text { font-family: 'Syne', sans-serif; font-size: 1.2rem; font-weight: 700; line-height: 1.4; color: #e8f4f8; }
+.sent-text .blank { color: #00e5ff; border-bottom: 2px solid #00e5ff; padding: 0 4px; }
+.hint { font-size: 0.75rem; color: rgba(232,244,248,0.4); margin-top: 6px; font-style: italic; }
+.tense-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; flex-shrink: 0; }
+.tense-choice { padding: 14px 8px; border-radius: 12px; border: 2px solid; cursor: pointer; text-align: center; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.85rem; transition: all 0.15s; line-height: 1.3; }
+.simple-btn { border-color: rgba(0,229,255,0.35); background: rgba(0,229,255,0.08); color: #00e5ff; }
+.prog-btn { border-color: rgba(255,107,53,0.35); background: rgba(255,107,53,0.08); color: #ff6b35; }
+.tense-choice:active { transform: scale(0.95); }
+.tense-choice.correct { background: rgba(6,214,160,0.15); border-color: #06d6a0; color: #06d6a0; }
+.tense-choice.wrong { background: rgba(239,71,111,0.15); border-color: #ef476f; color: #ef476f; animation: shake 0.3s; }
+.fill-options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; flex-shrink: 0; }
+.fill-opt { padding: 13px 8px; border-radius: 12px; border: 1.5px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04); color: #e8f4f8; font-size: 0.85rem; font-weight: 500; cursor: pointer; transition: all 0.15s; text-align: center; }
+.fill-opt:active { transform: scale(0.95); }
+.fill-opt.correct { background: rgba(6,214,160,0.15); border-color: #06d6a0; color: #06d6a0; }
+.fill-opt.wrong { background: rgba(239,71,111,0.15); border-color: #ef476f; color: #ef476f; animation: shake 0.3s; }
+@keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
+.explanation { font-size: 0.8rem; line-height: 1.5; padding: 10px 12px; border-radius: 10px; margin-top: 8px; flex-shrink: 0; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+.explanation.show { opacity: 1; pointer-events: all; }
+.explanation.ok { background: rgba(6,214,160,0.1); border: 1px solid rgba(6,214,160,0.25); }
+.explanation.bad { background: rgba(239,71,111,0.1); border: 1px solid rgba(239,71,111,0.25); }
+.explanation strong { color: #ffd166; }
+.next-btn { width: 100%; padding: 13px; border-radius: 12px; border: none; background: #1e2d40; color: #e8f4f8; font-family: 'Syne', sans-serif; font-size: 0.95rem; font-weight: 700; cursor: pointer; margin-top: 8px; flex-shrink: 0; display: none; }
+.next-btn.show { display: block; }
+.next-btn:active { opacity: 0.8; }
+
+/* RESULTS */
+.results-wrap { display: flex; flex-direction: column; align-items: center; flex: 1; justify-content: space-between; }
+.results-top { text-align: center; flex-shrink: 0; }
+.res-emoji { font-size: 3.5rem; display: block; animation: pop 0.4s cubic-bezier(0.34,1.56,0.64,1); }
+@keyframes pop { from{transform:scale(0)} to{transform:scale(1)} }
+.res-title { font-family: 'Syne', sans-serif; font-size: 1.5rem; font-weight: 800; margin: 8px 0 2px; }
+.res-sub { font-size: 0.82rem; color: rgba(232,244,248,0.45); }
+.stats-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; width: 100%; flex-shrink: 0; }
+.stat-box { background: #162030; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 12px 6px; text-align: center; }
+.stat-n { font-family: 'Syne', sans-serif; font-size: 1.8rem; font-weight: 800; color: #ffd166; }
+.stat-l { font-size: 0.68rem; color: rgba(232,244,248,0.45); margin-top: 2px; }
+.rule-box { width: 100%; background: #162030; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 12px; flex-shrink: 0; }
+.rule-box-title { font-size: 0.6rem; letter-spacing: 2px; text-transform: uppercase; color: rgba(232,244,248,0.35); margin-bottom: 8px; }
+.rule-row { display: flex; gap: 8px; margin-bottom: 6px; align-items: flex-start; }
+.rdot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+.rdot.s { background: #00e5ff; }
+.rdot.p { background: #ff6b35; }
+.rtext { font-size: 0.75rem; color: rgba(232,244,248,0.5); line-height: 1.4; }
+.rtext strong { color: #e8f4f8; }
+.res-btns { display: flex; flex-direction: column; gap: 8px; width: 100%; flex-shrink: 0; }
+.btn-a { padding: 13px; border-radius: 12px; border: none; background: linear-gradient(135deg, #00e5ff, #0099bb); color: #0f1923; font-family: 'Syne', sans-serif; font-size: 0.95rem; font-weight: 800; cursor: pointer; }
+.btn-b { padding: 11px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.12); background: transparent; color: #e8f4f8; font-family: 'Syne', sans-serif; font-size: 0.88rem; font-weight: 700; cursor: pointer; }
+.btn-a:active,.btn-b:active { opacity: 0.85; transform: scale(0.98); }
+.flash { position: fixed; inset: 0; pointer-events: none; z-index: 50; opacity: 0; transition: opacity 0.15s; }
+.flash.go { opacity: 1; }
+.flash.ok { background: rgba(6,214,160,0.07); }
+.flash.bad { background: rgba(239,71,111,0.07); }
+
+/* TYPE MODE */
+.type-wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; flex-shrink: 0; width: 100%; }
+.type-input-row { display: flex; gap: 8px; width: 100%; }
+.type-input {
+  flex: 1; padding: 16px 16px; border-radius: 12px;
+  border: 2px solid rgba(0,229,255,0.3);
+  background: rgba(0,229,255,0.06);
+  color: #e8f4f8; font-family: 'DM Sans', sans-serif;
+  font-size: 1.1rem; font-weight: 700;
+  line-height: 1.4;
+  outline: none; text-align: center;
+  transition: border-color 0.2s;
+  height: 56px;
+}
+.type-input:focus { border-color: #00e5ff; }
+.type-input.ok  { border-color: #06d6a0; background: rgba(6,214,160,0.1); color: #06d6a0; }
+.type-input.bad { border-color: #ef476f; background: rgba(239,71,111,0.1); color: #ef476f; animation: shake 0.3s; }
+.type-submit {
+  padding: 14px 18px; border-radius: 12px; border: none;
+  background: #00e5ff; color: #0f1923;
+  font-family: 'Syne', sans-serif; font-size: 1rem; font-weight: 800;
+  cursor: pointer; flex-shrink: 0; transition: opacity 0.2s;
+}
+.type-submit:active { opacity: 0.8; }
+.type-hint-row { font-size: 0.75rem; color: rgba(232,244,248,0.35); text-align: center; }
+.accepted-label { font-size: 0.72rem; color: rgba(232,244,248,0.35); margin-top: 4px; }
+</style>
+</head>
+<body>
+<div class="flash" id="flash"></div>
+<div class="app">
+  <div class="header">
+    <div class="logo">TENSE ⚡ CHALLENGE</div>
+    <div class="score-pill">⭐ <span id="headerScore">0</span></div>
+  </div>
+
+  <!-- HOME -->
+  <div class="screen active" id="screen-home">
+    <div class="home-title">Master <span>English</span> Tenses</div>
+    <div class="tense-cards">
+      <div class="tense-card simple">
+        <div class="tc-label">Present Simple</div>
+        <div class="tc-title">Habits &amp; Facts</div>
+        <div class="tc-ex">"She <strong>works</strong> every day."</div>
+      </div>
+      <div class="tense-card prog">
+        <div class="tc-label">Present Progressive</div>
+        <div class="tc-title">Right Now</div>
+        <div class="tc-ex">"She <strong>is working</strong> now."</div>
+      </div>
+    </div>
+    <div class="mode-label">Choose challenge mode</div>
+    <div class="mode-grid" style="grid-template-columns:1fr 1fr;margin-bottom:10px">
+      <button class="mode-btn active" id="mode-tense" onclick="setMode('tense')">🎯<br>Pick<br>the Tense</button>
+      <button class="mode-btn" id="mode-fill" onclick="setMode('fill')">✏️<br>Fill<br>the Blank</button>
+      <button class="mode-btn" id="mode-type" onclick="setMode('type')">⌨️<br>Type<br>the Answer</button>
+      <button class="mode-btn" id="mode-mix" onclick="setMode('mix')">🔀<br>Mix<br>All Modes</button>
+    </div>
+    <button class="play-btn" onclick="startGame()">▶ START GAME</button>
+  </div>
+
+  <!-- GAME -->
+  <div class="screen" id="screen-game">
+    <div class="progress-row">
+      <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+      <div class="progress-lbl" id="progressLbl">1 / 10</div>
+    </div>
+    <div id="questionWrap"></div>
+    <div class="explanation" id="explanation"></div>
+    <button class="next-btn" id="nextBtn" onclick="nextQuestion()">Next →</button>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="screen" id="screen-results">
+    <div class="results-wrap">
+      <div class="results-top">
+        <span class="res-emoji" id="resEmoji">🏆</span>
+        <div class="res-title" id="resTitle">Great job!</div>
+        <div class="res-sub" id="resSub">Here's how you did</div>
+      </div>
+      <div class="stats-row">
+        <div class="stat-box"><div class="stat-n" id="rC">0</div><div class="stat-l">✅ Correct</div></div>
+        <div class="stat-box"><div class="stat-n" id="rW">0</div><div class="stat-l">❌ Wrong</div></div>
+        <div class="stat-box"><div class="stat-n" id="rP">0</div><div class="stat-l">⭐ Points</div></div>
+      </div>
+      <div class="rule-box">
+        <div class="rule-box-title">Quick Rules Recap</div>
+        <div class="rule-row"><div class="rdot s"></div><div class="rtext"><strong>Simple:</strong> habits, facts, routines — always, every day, never</div></div>
+        <div class="rule-row"><div class="rdot p"></div><div class="rtext"><strong>Progressive:</strong> happening now — now, at the moment, look!, listen!</div></div>
+      </div>
+      <div class="res-btns">
+        <button class="btn-a" onclick="startGame()">Play Again</button>
+        <button class="btn-b" onclick="showScreen('home')">Back to Home</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SCORE_KEY = 'tense_score_v1';
+let totalScore = parseInt(localStorage.getItem(SCORE_KEY) || '0');
+let mode = 'tense', gameQ = [], idx = 0, correct = 0, wrong = 0, pts = 0, answered = false;
+
+const questions = [
+  // ── TENSE (35 questions) ──
+  {type:'tense',sentence:'She _____ to school every day.',answer:'simple',verb:'walks',hint:'Every day = habit',explain:'<strong>Present Simple</strong> — "every day" signals a habit.'},
+  {type:'tense',sentence:'Look! It _____ outside right now.',answer:'prog',verb:'is raining',hint:'Look! = happening now',explain:'<strong>Present Progressive</strong> — "Look!" = action at this moment.'},
+  {type:'tense',sentence:'My dad _____ in a hospital.',answer:'simple',verb:'works',hint:'Permanent job',explain:'<strong>Present Simple</strong> — permanent jobs use Simple.'},
+  {type:'tense',sentence:'Be quiet! The baby _____.',answer:'prog',verb:'is sleeping',hint:'Be quiet = right now!',explain:'<strong>Present Progressive</strong> — happening at this very moment.'},
+  {type:'tense',sentence:'Water _____ at 100 degrees.',answer:'simple',verb:'boils',hint:'Scientific fact',explain:'<strong>Present Simple</strong> — scientific facts always use Simple.'},
+  {type:'tense',sentence:'I _____ for my keys right now.',answer:'prog',verb:"'m looking",hint:'Right now = in progress',explain:'<strong>Present Progressive</strong> — a temporary action happening now.'},
+  {type:'tense',sentence:'Tom usually _____ coffee in the morning.',answer:'simple',verb:'drinks',hint:'Usually = habit',explain:'<strong>Present Simple</strong> — "usually" signals a regular habit.'},
+  {type:'tense',sentence:'She _____ a great book this week.',answer:'prog',verb:'is reading',hint:'This week = temporary',explain:'<strong>Present Progressive</strong> — "this week" = temporary ongoing action.'},
+  {type:'tense',sentence:'The Earth _____ around the Sun.',answer:'simple',verb:'goes',hint:'Permanent fact',explain:'<strong>Present Simple</strong> — permanent scientific facts.'},
+  {type:'tense',sentence:'Listen! Someone _____ at the door.',answer:'prog',verb:'is knocking',hint:'Listen! = right now',explain:'<strong>Present Progressive</strong> — "Listen!" signals something happening now.'},
+  {type:'tense',sentence:'He never _____ his vegetables.',answer:'simple',verb:'eats',hint:'Never = frequency word',explain:'<strong>Present Simple</strong> — frequency words (never, always, often).'},
+  {type:'tense',sentence:'They _____ a house at the moment.',answer:'prog',verb:'are building',hint:'At the moment',explain:'<strong>Present Progressive</strong> — "at the moment" is a key signal word.'},
+  {type:'tense',sentence:'Cats _____ fish.',answer:'simple',verb:'like',hint:'General truth / preference',explain:'<strong>Present Simple</strong> — general truths and permanent preferences.'},
+  {type:'tense',sentence:'Hurry! The taxi _____ outside!',answer:'prog',verb:'is waiting',hint:'Hurry! = happening now',explain:'<strong>Present Progressive</strong> — "Hurry!" = action in progress right now.'},
+  {type:'tense',sentence:'She _____ French and Spanish.',answer:'simple',verb:'speaks',hint:'Permanent ability',explain:'<strong>Present Simple</strong> — permanent abilities use Simple.'},
+  {type:'tense',sentence:'We _____ for our flight right now.',answer:'prog',verb:'are waiting',hint:'Right now at the airport',explain:'<strong>Present Progressive</strong> — action happening right now.'},
+  {type:'tense',sentence:'The shop _____ at 9am every day.',answer:'simple',verb:'opens',hint:'Schedule / routine',explain:'<strong>Present Simple</strong> — timetables and schedules use Simple.'},
+  {type:'tense',sentence:'He _____ a new project this month.',answer:'prog',verb:'is starting',hint:'This month = temporary',explain:'<strong>Present Progressive</strong> — temporary situation in progress.'},
+  {type:'tense',sentence:'I always _____ my hands before eating.',answer:'simple',verb:'wash',hint:'Always = routine',explain:'<strong>Present Simple</strong> — "always" signals a habit.'},
+  {type:'tense',sentence:'Look at the dog! It _____ in the garden.',answer:'prog',verb:'is digging',hint:'Look! = happening now',explain:'<strong>Present Progressive</strong> — "Look!" = action at this moment.'},
+  {type:'tense',sentence:'Plants _____ sunlight to grow.',answer:'simple',verb:'need',hint:'Scientific fact',explain:'<strong>Present Simple</strong> — facts and scientific truths.'},
+  {type:'tense',sentence:'She _____ to her friend on the phone now.',answer:'prog',verb:'is talking',hint:'Now = in progress',explain:'<strong>Present Progressive</strong> — happening at this moment.'},
+  {type:'tense',sentence:'He _____ to the gym three times a week.',answer:'simple',verb:'goes',hint:'Three times a week = routine',explain:'<strong>Present Simple</strong> — regular routine.'},
+  {type:'tense',sentence:'They _____ a new language these days.',answer:'prog',verb:'are learning',hint:'These days = temporary',explain:'<strong>Present Progressive</strong> — "these days" = temporary ongoing.'},
+  {type:'tense',sentence:'Ice _____ at zero degrees Celsius.',answer:'simple',verb:'melts',hint:'Scientific fact',explain:'<strong>Present Simple</strong> — scientific facts.'},
+  {type:'tense',sentence:'The children _____ very loudly right now.',answer:'prog',verb:'are laughing',hint:'Right now',explain:'<strong>Present Progressive</strong> — action happening right now.'},
+  {type:'tense',sentence:'She _____ her bike to school every day.',answer:'simple',verb:'rides',hint:'Every day = habit',explain:'<strong>Present Simple</strong> — "every day" = habit.'},
+  {type:'tense',sentence:'I _____ dinner. Can you set the table?',answer:'prog',verb:'am cooking',hint:'Can you help? = happening now',explain:'<strong>Present Progressive</strong> — action in progress right now.'},
+  {type:'tense',sentence:'He _____ at least eight hours every night.',answer:'simple',verb:'sleeps',hint:'Every night = routine',explain:'<strong>Present Simple</strong> — regular routine.'},
+  {type:'tense',sentence:'She _____ a report for the meeting.',answer:'prog',verb:'is writing',hint:'Ongoing task = in progress',explain:'<strong>Present Progressive</strong> — temporary task in progress.'},
+  {type:'tense',sentence:'Dogs _____ faster than cats.',answer:'simple',verb:'run',hint:'General fact',explain:'<strong>Present Simple</strong> — general facts and truths.'},
+  {type:'tense',sentence:'The workers _____ the road outside.',answer:'prog',verb:'are fixing',hint:'Ongoing work right now',explain:'<strong>Present Progressive</strong> — action happening right now.'},
+  {type:'tense',sentence:'She _____ her homework after school every day.',answer:'simple',verb:'does',hint:'Every day = routine',explain:'<strong>Present Simple</strong> — regular habit.'},
+  {type:'tense',sentence:'He _____ in the pool. Go and watch him!',answer:'prog',verb:'is swimming',hint:'Go watch = happening now',explain:'<strong>Present Progressive</strong> — action in progress at this moment.'},
+  {type:'tense',sentence:'The Moon _____ around the Earth.',answer:'simple',verb:'orbits',hint:'Permanent scientific fact',explain:'<strong>Present Simple</strong> — permanent facts.'},
+
+  // ── FILL (35 questions) ──
+  {type:'fill',sentence:'She ___ (go) to the gym every morning.',answer:'goes',options:['goes','is going','go','going'],hint:'Every morning = routine',explain:'<strong>goes</strong> — Simple. "Every morning" = routine. She/he/it + base + s.'},
+  {type:'fill',sentence:'Shh! The children ___ (sleep) right now.',answer:'are sleeping',options:['are sleeping','sleep','sleeps','sleeping'],hint:'Right now!',explain:'<strong>are sleeping</strong> — Progressive. "Right now" = am/is/are + verb-ing.'},
+  {type:'fill',sentence:'My brother ___ (study) at the moment.',answer:'is studying',options:['is studying','studies','study','studying'],hint:'At the moment',explain:'<strong>is studying</strong> — Progressive. "At the moment" = action in progress.'},
+  {type:'fill',sentence:'Dogs ___ (bark) when they are scared.',answer:'bark',options:['bark','are barking','is barking','barking'],hint:'General truth',explain:'<strong>bark</strong> — Simple. General truths use Present Simple.'},
+  {type:'fill',sentence:"I can't talk. I ___ (drive) right now.",answer:'am driving',options:['am driving','drive','drives','driving'],hint:"Can't talk = busy NOW",explain:'<strong>am driving</strong> — Progressive. Currently in the middle of an action.'},
+  {type:'fill',sentence:'The train ___ (leave) at 7am every day.',answer:'leaves',options:['leaves','is leaving','are leaving','leaving'],hint:'Schedule/timetable',explain:'<strong>leaves</strong> — Simple. Timetables and schedules use Simple.'},
+  {type:'fill',sentence:'Look at Maya! She ___ (dance) so well.',answer:'is dancing',options:['is dancing','dances','dance','dancing'],hint:'Look! = right now',explain:'<strong>is dancing</strong> — Progressive. "Look!" signals right now.'},
+  {type:'fill',sentence:'The Sun ___ (rise) in the east.',answer:'rises',options:['rises','is rising','are rising','rising'],hint:'Permanent fact',explain:'<strong>rises</strong> — Simple. Geographical facts.'},
+  {type:'fill',sentence:'We ___ (have) lunch at school every day.',answer:'have',options:['have','are having','has','having'],hint:'Every day = routine',explain:'<strong>have</strong> — Simple. Daily routine.'},
+  {type:'fill',sentence:'Listen! The baby ___ (cry) again.',answer:'is crying',options:['is crying','cries','cry','crying'],hint:'Listen! = right now',explain:'<strong>is crying</strong> — Progressive. "Listen!" = happening now. (y→ying)'},
+  {type:'fill',sentence:'He usually ___ (read) before bed.',answer:'reads',options:['reads','is reading','read','reading'],hint:'Usually = habit',explain:'<strong>reads</strong> — Simple. "Usually" = habit. He + base + s.'},
+  {type:'fill',sentence:'They ___ (build) a new bridge at the moment.',answer:'are building',options:['are building','build','builds','building'],hint:'At the moment',explain:'<strong>are building</strong> — Progressive. Temporary ongoing project.'},
+  {type:'fill',sentence:'She ___ (teach) English at our school.',answer:'teaches',options:['teaches','is teaching','teach','teaching'],hint:'Permanent job',explain:'<strong>teaches</strong> — Simple. Permanent job. -ch + es.'},
+  {type:'fill',sentence:'I ___ (write) an essay right now.',answer:'am writing',options:['am writing','write','writes','writing'],hint:'Right now',explain:'<strong>am writing</strong> — Progressive. Drop -e before -ing.'},
+  {type:'fill',sentence:'Bees ___ (make) honey.',answer:'make',options:['make','are making','makes','making'],hint:'General truth about bees',explain:'<strong>make</strong> — Simple. General fact about nature.'},
+  {type:'fill',sentence:'Look! The cat ___ (sit) on the keyboard!',answer:'is sitting',options:['is sitting','sits','sit','sitting'],hint:'Look! = now',explain:'<strong>is sitting</strong> — Progressive. Double t before -ing.'},
+  {type:'fill',sentence:'He ___ (not/like) horror films.',answer:"doesn't like",options:["doesn't like","isn't liking","not like","don't like"],hint:'Permanent preference',explain:"<strong>doesn't like</strong> — Simple. Permanent preferences. He + doesn't + base verb."},
+  {type:'fill',sentence:'We ___ (plan) a trip to Spain this year.',answer:'are planning',options:['are planning','plan','plans','planning'],hint:'This year = temporary plan',explain:'<strong>are planning</strong> — Progressive. Temporary plan in progress.'},
+  {type:'fill',sentence:'She ___ (visit) her grandma every Sunday.',answer:'visits',options:['visits','is visiting','visit','visiting'],hint:'Every Sunday = routine',explain:'<strong>visits</strong> — Simple. Every Sunday = weekly routine.'},
+  {type:'fill',sentence:'Hurry up! The bus ___ (come)!',answer:'is coming',options:['is coming','comes','come','coming'],hint:'Hurry up! = right now',explain:'<strong>is coming</strong> — Progressive. "Hurry up!" = happening now.'},
+  {type:'fill',sentence:'He ___ (not/eat) meat. He is vegetarian.',answer:"doesn't eat",options:["doesn't eat","isn't eating","not eat","don't eat"],hint:'Permanent habit / lifestyle',explain:"<strong>doesn't eat</strong> — Simple. Permanent lifestyle choice."},
+  {type:'fill',sentence:'The children ___ (play) outside now.',answer:'are playing',options:['are playing','play','plays','playing'],hint:'Now = in progress',explain:'<strong>are playing</strong> — Progressive. Action in progress now.'},
+  {type:'fill',sentence:'She always ___ (smile) when she sees him.',answer:'smiles',options:['smiles','is smiling','smile','smiling'],hint:'Always = habit',explain:'<strong>smiles</strong> — Simple. "Always" = regular habit.'},
+  {type:'fill',sentence:'I ___ (not/understand) this question.',answer:"don't understand",options:["don't understand","am not understanding","not understand","doesn't understand"],hint:'State verb — no progressive',explain:"<strong>don't understand</strong> — Simple. Stative verbs (understand, know, like) don't use Progressive."},
+  {type:'fill',sentence:'The chef ___ (prepare) a special dish today.',answer:'is preparing',options:['is preparing','prepares','prepare','preparing'],hint:'Today = temporary action',explain:'<strong>is preparing</strong> — Progressive. Temporary action happening today.'},
+  {type:'fill',sentence:'Birds ___ (fly) south every winter.',answer:'fly',options:['fly','are flying','flies','flying'],hint:'Every winter = seasonal habit',explain:'<strong>fly</strong> — Simple. Regular seasonal pattern.'},
+  {type:'fill',sentence:'She ___ (shop) for new clothes right now.',answer:'is shopping',options:['is shopping','shops','shop','shopping'],hint:'Right now',explain:'<strong>is shopping</strong> — Progressive. Double p before -ing.'},
+  {type:'fill',sentence:'I ___ (take) the bus every day.',answer:'take',options:['take','am taking','takes','taking'],hint:'Every day = habit',explain:'<strong>take</strong> — Simple. I/you/we/they + base verb.'},
+  {type:'fill',sentence:'Look at them! They ___ (argue) again.',answer:'are arguing',options:['are arguing','argue','argues','arguing'],hint:'Look! = right now',explain:'<strong>are arguing</strong> — Progressive. Drop -e before -ing.'},
+  {type:'fill',sentence:'She ___ (know) the answer.',answer:'knows',options:['knows','is knowing','know','knowing'],hint:'Stative verb',explain:'<strong>knows</strong> — Simple. "Know" is a stative verb — never use Progressive.'},
+  {type:'fill',sentence:'He ___ (run) a marathon next month — training now!',answer:'is training',options:['is training','trains','train','training'],hint:'Currently training = in progress',explain:'<strong>is training</strong> — Progressive. Currently doing this activity.'},
+  {type:'fill',sentence:'The library ___ (close) at 8pm every night.',answer:'closes',options:['closes','is closing','close','closing'],hint:'Every night = schedule',explain:'<strong>closes</strong> — Simple. Fixed schedule uses Simple.'},
+  {type:'fill',sentence:'She ___ (try) to learn Arabic this year.',answer:'is trying',options:['is trying','tries','try','trying'],hint:'This year = temporary effort',explain:'<strong>is trying</strong> — Progressive. Temporary ongoing effort.'},
+  {type:'fill',sentence:'The baby ___ (sleep) twelve hours a day.',answer:'sleeps',options:['sleeps','is sleeping','sleep','sleeping'],hint:'Every day = habit',explain:'<strong>sleeps</strong> — Simple. Regular habit. It/he/she + base + s.'},
+  {type:'fill',sentence:'We ___ (not/watch) TV right now.',answer:"aren't watching",options:["aren't watching","don't watch","not watching","doesn't watch"],hint:'Right now = negative progressive',explain:"<strong>aren't watching</strong> — Progressive negative. We aren't + verb-ing."},
+
+  // ── TYPE (40 questions) ──
+  {type:'type',verb:'go',sentence:'She ___ (go) to school every day.',answer:'goes',accepted:['goes'],hint:'she • every day',explain:'<strong>goes</strong> — Simple. She/he/it + base + s.'},
+  {type:'type',verb:'run',sentence:'Look! They ___ (run) in the park.',answer:'are running',accepted:['are running'],hint:'they • Look! = now',explain:'<strong>are running</strong> — Progressive. They are + verb-ing. Double n.'},
+  {type:'type',verb:'eat',sentence:'I usually ___ (eat) breakfast at 7am.',answer:'eat',accepted:['eat'],hint:'I • usually = habit',explain:'<strong>eat</strong> — Simple. I/you/we/they + base verb.'},
+  {type:'type',verb:'study',sentence:'He ___ (study) for his exam right now.',answer:'is studying',accepted:['is studying'],hint:'he • right now',explain:'<strong>is studying</strong> — Progressive. He is + studying. (y→ying)'},
+  {type:'type',verb:'boil',sentence:'Water ___ (boil) at 100°C.',answer:'boils',accepted:['boils'],hint:'water • scientific fact',explain:'<strong>boils</strong> — Simple. Facts. Water/it + base + s.'},
+  {type:'type',verb:'sing',sentence:'Listen! The birds ___ (sing).',answer:'are singing',accepted:['are singing'],hint:'they • Listen! = now',explain:'<strong>are singing</strong> — Progressive. They are + verb-ing.'},
+  {type:'type',verb:'work',sentence:'My sister ___ (work) in a bank.',answer:'works',accepted:['works'],hint:'she • permanent job',explain:'<strong>works</strong> — Simple. Permanent job. She + base + s.'},
+  {type:'type',verb:'watch',sentence:'We ___ (watch) a movie at the moment.',answer:'are watching',accepted:['are watching'],hint:'we • at the moment',explain:'<strong>are watching</strong> — Progressive. We are + verb-ing.'},
+  {type:'type',verb:'cry',sentence:'The baby ___ (cry) right now.',answer:'is crying',accepted:['is crying'],hint:'the baby • right now',explain:'<strong>is crying</strong> — Progressive. It is + crying. (y→ying)'},
+  {type:'type',verb:'talk',sentence:'She always ___ (talk) on the phone.',answer:'talks',accepted:['talks'],hint:'she • always = habit',explain:'<strong>talks</strong> — Simple. Always = routine. She + base + s.'},
+  {type:'type',verb:'play',sentence:'The kids ___ (play) in the garden now.',answer:'are playing',accepted:['are playing'],hint:'they • now',explain:'<strong>are playing</strong> — Progressive. They are + verb-ing.'},
+  {type:'type',verb:'drive',sentence:'He ___ (drive) to work every day.',answer:'drives',accepted:['drives'],hint:'he • every day',explain:'<strong>drives</strong> — Simple. He + base + s.'},
+  {type:'type',verb:'cook',sentence:'Mum ___ (cook) dinner right now.',answer:'is cooking',accepted:['is cooking'],hint:'she • right now',explain:'<strong>is cooking</strong> — Progressive. She is + verb-ing.'},
+  {type:'type',verb:'read',sentence:'I ___ (read) a good book these days.',answer:'am reading',accepted:['am reading'],hint:'I • these days = temporary',explain:'<strong>am reading</strong> — Progressive. I am + verb-ing.'},
+  {type:'type',verb:'sleep',sentence:'Dogs ___ (sleep) a lot.',answer:'sleep',accepted:['sleep'],hint:'they • general truth',explain:'<strong>sleep</strong> — Simple. General truth. They/dogs + base verb.'},
+  {type:'type',verb:'swim',sentence:'Look at her! She ___ (swim) so fast!',answer:'is swimming',accepted:['is swimming'],hint:'she • Look! = now',explain:'<strong>is swimming</strong> — Progressive. Double m before -ing.'},
+  {type:'type',verb:'teach',sentence:'Mr. Lee ___ (teach) maths at our school.',answer:'teaches',accepted:['teaches'],hint:'he • permanent job',explain:'<strong>teaches</strong> — Simple. He/she/it + es after -ch.'},
+  {type:'type',verb:'write',sentence:'She ___ (write) an email at the moment.',answer:'is writing',accepted:['is writing'],hint:'she • at the moment',explain:'<strong>is writing</strong> — Progressive. Drop -e before -ing.'},
+  {type:'type',verb:'fly',sentence:'Birds ___ (fly) south every winter.',answer:'fly',accepted:['fly'],hint:'they • every winter',explain:'<strong>fly</strong> — Simple. They/birds + base verb.'},
+  {type:'type',verb:'sit',sentence:'Be quiet! The cat ___ (sit) on my laptop.',answer:'is sitting',accepted:['is sitting'],hint:'it • Be quiet! = now',explain:'<strong>is sitting</strong> — Progressive. Double t before -ing.'},
+  {type:'type',verb:'know',sentence:'Everybody ___ (know) the answer.',answer:'knows',accepted:['knows'],hint:'everybody • fact',explain:'<strong>knows</strong> — Simple. Stative verb. Everybody + base + s.'},
+  {type:'type',verb:'come',sentence:'Hurry up! The bus ___ (come)!',answer:'is coming',accepted:['is coming'],hint:'it • Hurry up! = now',explain:'<strong>is coming</strong> — Progressive. Drop -e before -ing.'},
+  {type:'type',verb:'drink',sentence:'He never ___ (drink) coffee.',answer:'drinks',accepted:['drinks'],hint:'he • never = habit',explain:'<strong>drinks</strong> — Simple. Never = frequency. He + base + s.'},
+  {type:'type',verb:'help',sentence:'She ___ (help) her mum in the kitchen now.',answer:'is helping',accepted:['is helping'],hint:'she • now',explain:'<strong>is helping</strong> — Progressive. She is + verb-ing.'},
+  {type:'type',verb:'dance',sentence:'Look at Tom! He ___ (dance) with Sarah.',answer:'is dancing',accepted:['is dancing'],hint:'he • Look! = now',explain:'<strong>is dancing</strong> — Progressive. Drop -e before -ing.'},
+  {type:'type',verb:'speak',sentence:'She ___ (speak) three languages.',answer:'speaks',accepted:['speaks'],hint:'she • permanent ability',explain:'<strong>speaks</strong> — Simple. Permanent ability. She + base + s.'},
+  {type:'type',verb:'build',sentence:'They ___ (build) a new school this year.',answer:'are building',accepted:['are building'],hint:'they • this year = ongoing',explain:'<strong>are building</strong> — Progressive. Temporary ongoing project.'},
+  {type:'type',verb:'brush',sentence:'He always ___ (brush) his teeth after meals.',answer:'brushes',accepted:['brushes'],hint:'he • always = routine',explain:'<strong>brushes</strong> — Simple. He + es after -sh.'},
+  {type:'type',verb:'try',sentence:'She ___ (try) to learn Spanish this year.',answer:'is trying',accepted:['is trying'],hint:'she • this year = temporary',explain:'<strong>is trying</strong> — Progressive. She is + trying. (y→ying)'},
+  {type:'type',verb:'take',sentence:'He ___ (take) the bus every morning.',answer:'takes',accepted:['takes'],hint:'he • every morning',explain:'<strong>takes</strong> — Simple. He + base + s.'},
+  {type:'type',verb:'make',sentence:'Look! She ___ (make) a cake.',answer:'is making',accepted:['is making'],hint:'she • Look! = now',explain:'<strong>is making</strong> — Progressive. Drop -e before -ing.'},
+  {type:'type',verb:'visit',sentence:'We ___ (visit) our grandparents every Sunday.',answer:'visit',accepted:['visit'],hint:'we • every Sunday',explain:'<strong>visit</strong> — Simple. We/you/they + base verb.'},
+  {type:'type',verb:'fix',sentence:'The mechanic ___ (fix) my car right now.',answer:'is fixing',accepted:['is fixing'],hint:'he • right now',explain:'<strong>is fixing</strong> — Progressive. He is + verb-ing.'},
+  {type:'type',verb:'start',sentence:'The film ___ (start) at 8pm every night.',answer:'starts',accepted:['starts'],hint:'it • every night = schedule',explain:'<strong>starts</strong> — Simple. Fixed schedule. It + base + s.'},
+  {type:'type',verb:'rain',sentence:'It ___ (rain) heavily at the moment.',answer:'is raining',accepted:['is raining'],hint:'it • at the moment',explain:'<strong>is raining</strong> — Progressive. Current weather condition.'},
+  {type:'type',verb:'clean',sentence:'She ___ (clean) the house every Saturday.',answer:'cleans',accepted:['cleans'],hint:'she • every Saturday',explain:'<strong>cleans</strong> — Simple. Weekly routine. She + base + s.'},
+  {type:'type',verb:'shop',sentence:'They ___ (shop) for groceries right now.',answer:'are shopping',accepted:['are shopping'],hint:'they • right now',explain:'<strong>are shopping</strong> — Progressive. Double p before -ing.'},
+  {type:'type',verb:'forget',sentence:'He always ___ (forget) his keys!',answer:'forgets',accepted:['forgets'],hint:'he • always = habit',explain:'<strong>forgets</strong> — Simple. "Always" = habit. He + base + s.'},
+  {type:'type',verb:'wait',sentence:'She ___ (wait) for you outside right now.',answer:'is waiting',accepted:['is waiting'],hint:'she • right now',explain:'<strong>is waiting</strong> — Progressive. She is + verb-ing.'},
+  {type:'type',verb:'send',sentence:'I ___ (send) you an email every week.',answer:'send',accepted:['send'],hint:'I • every week = habit',explain:'<strong>send</strong> — Simple. I/you/we/they + base verb.'},
+];
+
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('mode-' + m).classList.add('active');
+}
+
+function startGame() {
+  let pool = mode==='tense' ? questions.filter(q=>q.type==='tense')
+           : mode==='fill'  ? questions.filter(q=>q.type==='fill')
+           : mode==='type'  ? questions.filter(q=>q.type==='type')
+           : [...questions];
+  for (let i=pool.length-1;i>0;i--) { const j=Math.floor(Math.random()*(i+1)); [pool[i],pool[j]]=[pool[j],pool[i]]; }
+  gameQ=pool.slice(0,10); idx=0; correct=0; wrong=0; pts=0; answered=false;
+  showScreen('game'); renderQ();
+}
+
+function renderQ() {
+  if (idx>=gameQ.length) { showResults(); return; }
+  answered=false;
+  const q=gameQ[idx];
+  document.getElementById('progressFill').style.width=`${(idx/gameQ.length)*100}%`;
+  document.getElementById('progressLbl').textContent=`${idx+1} / ${gameQ.length}`;
+  document.getElementById('explanation').className='explanation';
+  document.getElementById('explanation').innerHTML='';
+  document.getElementById('nextBtn').className='next-btn';
+  const wrap=document.getElementById('questionWrap');
+  if (q.type==='tense') {
+    wrap.innerHTML=`<div class="sentence-card"><div class="sent-tag">Which tense is correct?</div><div class="sent-text">${q.sentence.replace('_____','<span class="blank">'+q.verb+'</span>')}</div><div class="hint">💡 ${q.hint}</div></div><div class="tense-btns"><button class="tense-choice simple-btn" onclick="checkTense('simple')">Present<br>Simple</button><button class="tense-choice prog-btn" onclick="checkTense('prog')">Present<br>Progressive</button></div>`;
+  } else if (q.type==='fill') {
+    const display=q.sentence.replace(/___ \(.*?\)/,'<span class="blank">___</span>');
+    // Shuffle options so correct answer appears in random position
+    const shuffled=[...q.options].sort(()=>Math.random()-0.5);
+    wrap.innerHTML=`<div class="sentence-card"><div class="sent-tag">Fill in the blank</div><div class="sent-text">${display}</div><div class="hint">💡 ${q.hint}</div></div><div class="fill-options">${shuffled.map(o=>`<button class="fill-opt" onclick="checkFill(this,'${o.replace(/'/g,"&#39;")}')">${o}</button>`).join('')}</div>`;
+  } else {
+    // TYPE mode — show sentence with blank, verb shown separately as big badge
+    const display=q.sentence.replace(/___ \(.*?\)/,'<span class="blank">___</span>');
+    wrap.innerHTML=`
+      <div class="sentence-card">
+        <div class="sent-tag">⌨️ Type the correct form</div>
+        <div class="sent-text">${display}</div>
+        <div style="margin-top:12px;display:inline-flex;align-items:center;gap:8px;background:rgba(0,229,255,0.1);border:1.5px solid rgba(0,229,255,0.35);border-radius:10px;padding:6px 14px">
+          <span style="font-size:0.65rem;letter-spacing:1.5px;text-transform:uppercase;color:rgba(0,229,255,0.6)">verb</span>
+          <span style="font-family:'Syne',sans-serif;font-size:1.3rem;font-weight:800;color:#00e5ff">${q.verb}</span>
+        </div>
+        <div class="hint" style="margin-top:8px">💡 ${q.hint}</div>
+      </div>
+      <div class="type-wrap">
+        <div class="type-input-row">
+          <input class="type-input" id="typeInput" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="type the correct form...">
+          <button class="type-submit" onclick="checkType()">✓</button>
+        </div>
+        <div class="type-hint-row">Press ✓ or Enter to check</div>
+      </div>`;
+    setTimeout(()=>{
+      const inp=document.getElementById('typeInput');
+      if(inp){ inp.focus(); inp.addEventListener('keydown',e=>{ if(e.key==='Enter') checkType(); }); }
+    },100);
+  }
+}
+
+function checkTense(chosen) {
+  if (answered) return; answered=true;
+  const q=gameQ[idx]; const ok=chosen===q.answer;
+  document.querySelectorAll('.tense-choice').forEach(b=>{
+    const isS=b.classList.contains('simple-btn');
+    const isAns=q.answer==='simple'?isS:!isS;
+    const isCh=chosen==='simple'?isS:!isS;
+    if(isAns) b.classList.add('correct');
+    else if(isCh) b.classList.add('wrong');
+  });
+  handle(ok,q);
+}
+
+function checkFill(btn,chosen) {
+  if (answered) return; answered=true;
+  const q=gameQ[idx]; const ok=chosen===q.answer;
+  document.querySelectorAll('.fill-opt').forEach(b=>{
+    if(b.textContent===q.answer) b.classList.add('correct');
+    else if(b===btn&&!ok) b.classList.add('wrong');
+  });
+  handle(ok,q);
+}
+
+function checkType() {
+  if (answered) return;
+  const inp=document.getElementById('typeInput');
+  if (!inp) return;
+  const val=inp.value.trim().toLowerCase();
+  if (!val) return;
+  answered=true;
+  const q=gameQ[idx];
+  const ok=q.accepted.map(a=>a.toLowerCase()).includes(val);
+  inp.classList.add(ok?'ok':'bad');
+  inp.disabled=true;
+  if(!ok) inp.value=q.answer; // show correct answer
+  handle(ok,q);
+}
+
+function handle(ok,q) {
+  if(ok){correct++;pts++;totalScore++;localStorage.setItem(SCORE_KEY,totalScore);updateHeader();playCoin();}
+  else{wrong++;playSad();}
+  doFlash(ok);
+  const ex=document.getElementById('explanation');
+  ex.innerHTML=(ok?'✅ ':'❌ ')+q.explain;
+  ex.className='explanation show '+(ok?'ok':'bad');
+  document.getElementById('nextBtn').className='next-btn show';
+}
+
+function nextQuestion(){idx++;renderQ();}
+
+function showResults(){
+  document.getElementById('rC').textContent=correct;
+  document.getElementById('rW').textContent=wrong;
+  document.getElementById('rP').textContent=pts;
+  const pct=Math.round((correct/gameQ.length)*100);
+  const [e,t]=pct===100?['🏆','Perfect Score!']:pct>=80?['🥇','Excellent!']:pct>=60?['🥈','Good job!']:['💙','Keep practicing!'];
+  document.getElementById('resEmoji').textContent=e;
+  document.getElementById('resTitle').textContent=t;
+  document.getElementById('resSub').textContent=`${correct} / ${gameQ.length} correct — ${pct}%`;
+  showScreen('results');
+}
+
+function showScreen(name){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-'+name).classList.add('active');
+}
+
+function updateHeader(){document.getElementById('headerScore').textContent=totalScore;}
+
+function doFlash(ok){
+  const f=document.getElementById('flash');
+  f.className='flash go '+(ok?'ok':'bad');
+  setTimeout(()=>f.className='flash',300);
+}
+
+let actx=null;
+function ac(){if(!actx)actx=new(window.AudioContext||window.webkitAudioContext)();return actx;}
+function playCoin(){try{const c=ac();[523,659,784,1047].forEach((f,i)=>{const o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.type='sine';o.frequency.value=f;const t=c.currentTime+i*0.08;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.2,t+0.01);g.gain.exponentialRampToValueAtTime(0.001,t+0.18);o.start(t);o.stop(t+0.2);});}catch(e){}}
+function playSad(){try{const c=ac();[392,330,294].forEach((f,i)=>{const o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.type='triangle';o.frequency.value=f;const t=c.currentTime+i*0.13;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.15,t+0.02);g.gain.exponentialRampToValueAtTime(0.001,t+0.25);o.start(t);o.stop(t+0.28);});}catch(e){}}
+
+updateHeader();
+</script>
+</body>
+</html>
